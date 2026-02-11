@@ -1,0 +1,253 @@
+# OAuth2Server
+
+OAuth2Server es un servicio de autenticación y autorización basado en **Spring Boot**, diseñado para actuar como proveedor OAuth2 y emitir **tokens JWT** firmados. Su objetivo es centralizar la gestión de usuarios, roles y permisos dentro de un entorno de microservicios, ofreciendo un punto de entrada seguro y estandarizado para aplicaciones internas o externas.
+
+El proyecto está preparado para ejecutarse tanto en **entornos locales** (H2, Docker) como en **producción** (PostgreSQL, Kubernetes), con migraciones gestionadas mediante **Flyway** y un despliegue completamente automatizado.
+
+---
+
+## ✨ Características principales
+
+- **Servidor OAuth2 completo**  
+  Implementación de los flujos:
+  - *Password Grant*
+  - *Client Credentials*
+
+- **JWT firmado**  
+  Tokens firmados con clave configurable (HMAC), listos para validación en microservicios.
+
+- **Gestión de usuarios**  
+  - Entidad `UserEntity`  
+  - Roles (`UserRole`)  
+  - Contraseñas con **BCrypt**  
+  - Endpoints REST para consulta y creación de usuarios
+
+- **Migraciones Flyway**  
+  - `V1__init_schema_and_admin.sql`  
+  - `V2__update_passwords_bcrypt.sql`  
+  Garantizan un esquema consistente en todos los entornos.
+
+- **Base de datos flexible**  
+  - **H2** en desarrollo (archivo persistente en `/data/oauth2db.mv.db`)  
+  - **PostgreSQL** en producción
+
+- **Despliegue en Kubernetes**  
+  Incluye manifests completos:
+  - Deployment
+  - Service
+  - PVC
+  - Secrets
+  - Ingress
+  - Script de despliegue automatizado (`deploy.sh`)
+
+- **Documentación automática**  
+  Swagger UI habilitado mediante `SwaggerConfig` y `SwaggerUiConfig`.
+
+---
+
+## 📁 Estructura del proyecto
+
+```
+OAuth2Server/
+├── Dockerfile
+├── docker-compose.yml
+├── generate-jwt-key.sh
+├── COMMANDS.md
+├── k8s/
+│   ├── deployment.yaml
+│   ├── deploy.sh
+│   ├── ingress.yaml
+│   ├── namespace.yaml
+│   ├── pvc.yaml
+│   ├── secrets.yaml
+│   └── service.yaml
+├── scripts/
+│   ├── run-dev.sh
+│   └── run-prod.sh
+├── src/main/java/com/oauth/rest/
+│   ├── Application.java
+│   ├── config/
+│   ├── controller/
+│   ├── dto/
+│   ├── exception/
+│   ├── mapper/
+│   ├── model/
+│   ├── repository/
+│   ├── security/
+│   └── service/
+└── src/main/resources/
+    ├── application.properties
+    ├── application-dev.properties
+    ├── application-prod.properties
+    ├── data.sql
+    └── db/migration/
+```
+
+---
+
+## 🚀 Ejecución local
+
+### Con Maven
+
+```bash
+mvn clean package
+java -jar target/OAuth2Server-0.0.1-SNAPSHOT.jar
+```
+
+### Con Spring Boot plugin
+
+```bash
+mvn spring-boot:run
+```
+
+---
+
+## 🐳 Ejecución con Docker
+
+### Construir imagen
+
+```bash
+docker build -t oauth2server .
+```
+
+### Ejecutar contenedor
+
+```bash
+docker run -p 8080:8080 oauth2server
+```
+
+---
+
+## 🔐 Obtener un token OAuth2
+
+### Password Grant
+
+```bash
+curl -X POST \
+  -u "client_id:client_secret" \
+  -d "grant_type=password" \
+  -d "username=admin" \
+  -d "password=PASSWORD" \
+  http://localhost:8080/oauth/token
+```
+
+### Client Credentials
+
+```bash
+curl -X POST \
+  -u "client_id:client_secret" \
+  -d "grant_type=client_credentials" \
+  http://localhost:8080/oauth/token
+```
+
+---
+
+## ☸️ Despliegue en Kubernetes
+
+El directorio `k8s/` contiene todo lo necesario para desplegar el servicio:
+
+- `namespace.yaml`
+- `secrets.yaml`
+- `pvc.yaml`
+- `deployment.yaml`
+- `service.yaml`
+- `ingress.yaml`
+- `deploy.sh` (automatiza build → push → apply → restart)
+
+### Despliegue completo
+
+```bash
+./k8s/deploy.sh
+```
+
+### Reiniciar el deployment
+
+```bash
+kubectl rollout restart deployment/oauth2-server -n auth
+```
+
+### Port-forward para pruebas locales
+
+```bash
+kubectl port-forward -n auth svc/oauth2-server 8080:8080
+```
+
+---
+
+## 🗄️ Base de datos (H2 persistente)
+
+El archivo de base de datos se guarda en:
+
+```
+/data/oauth2db.mv.db
+```
+
+### Copiar la BD desde el pod al host
+
+```bash
+kubectl cp auth/<POD>:/data/oauth2db.mv.db ./oauth2db.mv.db
+```
+
+### Copiar la BD desde el host al pod
+
+```bash
+kubectl cp ./oauth2db.mv.db auth/<POD>:/data/oauth2db.mv.db
+```
+
+---
+
+## 🔑 Generar claves y contraseñas
+
+### Generar clave JWT
+
+```bash
+./generate-jwt-key.sh
+```
+
+### Generar hash BCrypt
+
+```bash
+python3 - <<'PY'
+import bcrypt
+print(bcrypt.hashpw(b"password", bcrypt.gensalt(rounds=10)).decode())
+PY
+```
+
+---
+
+## 📦 Variables de entorno en producción
+
+Se definen en `k8s/secrets.yaml` (codificadas en base64):
+
+- `JWT_SIGNING_KEY`
+- `DB_URL`
+- `DB_USER`
+- `DB_PASS`
+- `OAUTH_CLIENT_ID`
+- `OAUTH_CLIENT_SECRET`
+
+Ejemplo:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oauth2-secrets
+  namespace: auth
+type: Opaque
+data:
+  jwt-key: <base64>
+  db-url: <base64>
+  db-user: <base64>
+  db-pass: <base64>
+```
+
+---
+
+## 📄 Licencia
+
+MIT
+
+---
+
+
