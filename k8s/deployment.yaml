@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-server
+  namespace: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oauth2-server
+  template:
+    metadata:
+      labels:
+        app: oauth2-server
+    spec:
+      containers:
+        - name: oauth2-server
+          image: felixmurcia/oauth2server:v20260211-2038
+          
+          # Ejecuta tu script de producción dentro del contenedor
+          command: ["/bin/sh", "-c", "/app/run-prod.sh"]
+
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+
+            - name: JWT_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-secrets
+                  key: jwt-signing-key
+
+            - name: OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-secrets
+                  key: oauth-client-id
+
+            - name: OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-secrets
+                  key: oauth-client-secret
+
+            - name: OAUTH_REDIRECT_URI
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-secrets
+                  key: oauth-redirect-uri
+
+
+          ports:
+            - containerPort: 8080
+
+          volumeMounts:
+            - name: oauth2-data
+              mountPath: /data
+
+      volumes:
+        - name: oauth2-data
+          persistentVolumeClaim:
+            claimName: oauth2-pvc
