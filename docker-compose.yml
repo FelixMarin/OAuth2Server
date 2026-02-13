@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   oauth2-server:
     image: felixmurcia/oauth2server:dev
@@ -10,3 +8,4 @@ services:
       SPRING_PROFILES_ACTIVE: dev
     volumes:
       - /home/jetson/oauth2db:/app/data
+    command: ["/app/run-dev.sh"]
