@@ -20,4 +20,4 @@ RUN mkdir -p /data
 EXPOSE 8080
 
 # Comando por defecto (se puede sobrescribir en Kubernetes con `command:`)
-CMD ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
